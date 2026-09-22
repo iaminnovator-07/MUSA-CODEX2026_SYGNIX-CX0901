@@ -5,218 +5,171 @@
 
 > **Sense. Understand. Predict. Respond.**
 
-HazardEye is an **AI-powered Industrial IoT platform** built to monitor machines, understand industrial telemetry, detect abnormal conditions and help improve workplace safety through intelligent, real-time insights.
+HazardEye is an **AI-powered Industrial IoT platform** designed to monitor machines, detect abnormal conditions, improve workplace safety, and turn industrial telemetry into actionable intelligence.
 
-It combines **IoT sensing, edge connectivity, telemetry, analytics and AI-driven decision support** into a single modular platform.
+Built by **Team SYGNIX** for **MUSA CODEX 2026 — CX0901**.
+
+---
+
+## 🚀 Live Dashboard
+
+### Current Dashboard
+🔗 **[Open HazardEye Dashboard](https://machinesentinel.vercel.app/)**
+
+### Previous / Prototype Dashboard
+🔗 **[Open Previous Dashboard](https://hazardeye-mu.vercel.app)**
+
+---
+
+## 🖼️ Product Preview
+
+### Homepage
+
+![HazardEye Homepage](./docs/homepage.png)
+
+### Live Dashboard
+
+![HazardEye Dashboard](./docs/dashboard.png)
+
+### System Architecture
+
+![HazardEye Architecture](./docs/architecture.png)
+
+### End-to-End Workflow
+
+![HazardEye Workflow](./docs/workflow.png)
+
+### Hardware MVP
+
+![HazardEye Hardware MVP](./docs/MVP-hardware.jpg)
 
 ---
 
 ## 🚨 The Problem
 
-Industrial environments generate enormous amounts of physical data.
+Industrial environments continuously generate physical data:
 
-Machines vibrate.  
-Temperatures change.  
-Equipment behaves differently over time.  
-Unsafe conditions develop before humans notice them.
+- Machine temperature
+- Vibration
+- Sound
+- Distance / proximity
+- Machine operating conditions
+- Environmental parameters
 
-Yet much of this information remains fragmented across machines, sensors, manual inspections and disconnected systems.
+However, this data is often fragmented across sensors, machines, manual inspections and disconnected systems.
 
-### HazardEye aims to close that gap.
+HazardEye aims to bridge the gap between the **physical machine and actionable intelligence**.
 
-Instead of simply collecting sensor readings, the system is designed around a complete loop:
+---
 
-
-        PHYSICAL WORLD
-              │
-              ▼
-       ┌──────────────┐
-       │ Sensors /    │
-       │ IoT Nodes    │
-       └──────┬───────┘
-              │
-              ▼
-        DATA / TELEMETRY
-              │
-              ▼
-       ┌──────────────┐
-       │ Edge +       │
-       │ Connectivity │
-       └──────┬───────┘
-              │
-              ▼
-       ┌──────────────┐
-       │ AI /         │
-       │ Analytics    │
-       └──────┬───────┘
-              │
-       ┌──────┴───────┐
-       ▼              ▼
-    INSIGHTS        ALERTS
-       │              │
-       └──────┬───────┘
-              ▼
-        HUMAN ACTION
-
-
-
-        
-🧠 Software Architecture
-
-HazardEye uses a Feature-Based Modular Architecture.
-
-Rather than organizing the entire application only around technical layers, the software is structured around the actual capabilities of the product.
-
-This allows individual product modules to evolve independently while keeping the overall system maintainable and extensible.
+## 💡 Our Approach
 ```
-src/
-│
-├── app/
-│   └── Application-level configuration
-│
-├── assets/
-│   └── Static assets and resources
-│
-├── features/
-│   │
-│   ├── alerts/
-│   │   └── Alert generation and management
-│   │
-│   ├── analytics/
-│   │   └── Industrial data analysis and insights
-│   │
-│   ├── auth/
-│   │   └── Authentication and access control
-│   │
-│   ├── dashboard/
-│   │   └── Central monitoring interface
-│   │
-│   ├── demo/
-│   │   └── Demonstration workflows
-│   │
-│   ├── landing/
-│   │   └── Product landing experience
-│   │
-│   ├── machines/
-│   │   └── Machine-level monitoring
-│   │
-│   └── telemetry/
-│       └── Sensor and machine telemetry
-│
-├── services/
-│   └── External services and integrations
-│
-├── shared/
-│   └── Reusable components and utilities
-│
-├── test/
-│   └── Testing infrastructure
-│
-├── types/
-│   └── Shared TypeScript models
-│
-├── index.css
-│   └── Global styling
-│
-└── main.tsx
-  └── Application entry point
+PHYSICAL WORLD
+      ↓
+SENSORS / IoT NODES
+      ↓
+EDGE DEVICE
+      ↓
+TELEMETRY + LOCAL PROCESSING
+      ↓
+AI / ANOMALY DETECTION
+      ↓
+INSIGHTS + ALERTS
+      ↓
+DASHBOARD
+      ↓
+HUMAN ACTION
 ```
+The goal is not simply to collect sensor readings.
 
-🏗️ Why Feature-Based?
+Turn physical data into context, intelligence and action.
+---
+🏗️ System Architecture
 
-HazardEye is designed as a system that can grow beyond a single prototype.
-
-As new machines, sensors, industrial environments, analytics models and safety workflows are introduced, the software should not need to be rebuilt from scratch.
-
-The feature-based architecture allows new capabilities to be added as independent modules.
-
-This provides:
-Modular development
-Clear separation of responsibilities
-Easier maintenance
-Faster feature iteration
-Better scalability
-Easier hardware/software integration
-Cleaner collaboration between developers
-📡 Telemetry
-
-The telemetry module represents the bridge between the physical environment and the software layer.
-
-Industrial sensor data can include parameters such as:
-
-Temperature
-Vibration
-Distance
-Sound
-Machine state
-Environmental conditions
-Device health
-Other machine-specific signals
-
-The goal is not simply to display raw numbers.
-
-The objective is to turn telemetry into context.
+HazardEye follows a modular physical-to-digital architecture:
 ```
-Raw Sensor Data
-      ↓
-Telemetry
-      ↓
-Processing
-      ↓
-Patterns / Anomalies
-      ↓
-Insights
-      ↓
-Action
+┌─────────────────────────────────────────────┐
+│              PHYSICAL LAYER                │
+│ Sensors • Machines • Industrial Equipment  │
+└──────────────────────┬──────────────────────┘
+                       ↓
+┌─────────────────────────────────────────────┐
+│                 IoT LAYER                  │
+│ ESP32 • Sensor Nodes • Telemetry           │
+└──────────────────────┬──────────────────────┘
+                       ↓
+┌─────────────────────────────────────────────┐
+│                EDGE LAYER                  │
+│ Local Processing • Buffering • Alerts      │
+└──────────────────────┬──────────────────────┘
+                       ↓
+┌─────────────────────────────────────────────┐
+│                 AI LAYER                   │
+│ TinyML • Anomaly Detection • Analytics     │
+└──────────────────────┬──────────────────────┘
+                       ↓
+┌─────────────────────────────────────────────┐
+│             CONNECTIVITY LAYER             │
+│ Wi-Fi / IoT Connectivity / Offline Sync   │
+└──────────────────────┬──────────────────────┘
+                       ↓
+┌─────────────────────────────────────────────┐
+│              SOFTWARE LAYER                │
+│ Dashboard • Analytics • Alerts • History  │
+└─────────────────────────────────────────────┘
 ```
-🏭 Machine Intelligence
+---
+🤖 AI + Edge Intelligence
 
-The machines module organizes information around individual industrial assets.
+The current prototype explores TensorFlow Lite Micro / TinyML for edge-level intelligence.
 
-Instead of treating every sensor as an isolated data source, HazardEye is designed around the concept of machine-level intelligence.
+The AI layer is designed for:
 
-This creates a foundation for:
+Real-time anomaly detection
+Local inference
+Low-latency decisions
+Offline operation
+Machine behaviour analysis
 
-Machine health monitoring
-Asset-level telemetry
-Historical analysis
-Abnormal behaviour detection
-Predictive maintenance workflows
-Machine-specific alerts
-📊 Analytics
+Higher-level AI can later be integrated for contextual explanations, recommendations and natural-language industrial reports.
+---
+📡 IoT & Offline-First Design
 
-The analytics layer transforms collected telemetry into meaningful information.
+Industrial connectivity cannot always be assumed to be reliable.
 
-The long-term direction is to move from:
+HazardEye therefore follows an offline-first architecture:
 
-"What is happening?"
+```
+Sensors
+   ↓
+Edge Device
+   ↓
+Local Processing
+   ↓
+Local Storage / Queue
+   ↓
+Connectivity Available?
+   ├── YES → Cloud Sync → Dashboard
+   └── NO  → Continue Locally
+```
+This allows critical sensing and alert workflows to continue even when internet connectivity is unavailable.
+---
+⚠️ Alerts & Safety
 
-towards:
-
-"Why is it happening?"
-
-and eventually:
-
-"What is likely to happen next?"
-
-This creates the foundation for AI-assisted predictive maintenance and industrial decision support.
-
-⚠️ Alerts
-
-Industrial systems cannot rely on dashboards alone.
-
-When something important happens, the system needs to make the information actionable.
-
-The alerts module is responsible for representing abnormal or critical conditions and surfacing them to the user.
+HazardEye is designed to support both machine intelligence and worker safety.
 
 Potential alert categories include:
 
 Machine anomalies
-Unsafe conditions
+Unsafe operating conditions
 Threshold violations
 Sensor abnormalities
 Equipment health warnings
 Predictive maintenance events
+Worker safety alerts
+
+The system can provide local voice alerts, visual indicators and dashboard notifications.
+---
 🖥️ Dashboard
 
 The dashboard acts as the operational interface between the physical infrastructure and the human operator.
@@ -225,210 +178,142 @@ It brings together:
 ```
 Machines
    +
-Telemetry
+Live Telemetry
    +
 Analytics
    +
 Alerts
    +
-System Status
+Machine Status
+   +
+Historical Data
 ```
-into one monitoring environment.
+This provides a single environment for monitoring industrial assets and understanding machine behaviour.
+---
 
-The objective is to reduce the cognitive load required to understand what is happening across an industrial environment.
+🔧 Hardware Prototype
 
-🔌 IoT + Connectivity
+The prototype architecture is based around ESP32-class edge devices and industrial sensing concepts.
 
-HazardEye is designed as a complete physical-to-digital system.
+Example sensing layer:
 
-The broader architecture can incorporate:
+Temperature
+Vibration
+Sound
+Distance / proximity
+Machine-state signals
 
-Microcontrollers
-Industrial sensors
-IoT nodes
-Edge processing
-Wireless communication
-Local networks
-Cloud services
-AI/ML processing
+The prototype also explores local audio alerts using an I2S audio amplifier + speaker and local storage for offline data handling.
 
-The software layer is intentionally structured to remain flexible as the underlying hardware and connectivity layer evolves.
+🧠 Development Direction
+Hackathon Prototype
 
-📴 Offline-First
+For the hackathon demonstration, HazardEye can be demonstrated using an ESP32-based prototype, sensor nodes, the AI layer and the software dashboard.
 
-Industrial environments cannot always assume reliable internet connectivity.
+The focus is on demonstrating the complete:
 
-For this reason, HazardEye follows an offline-first design philosophy for critical workflows.
+Sense → Understand → Decide → Act
 
-The broader system can operate across multiple layers:
-```
-┌───────────────────────────┐
-│       Cloud Layer         │
-│ AI • Storage • Analytics  │
-└─────────────┬─────────────┘
-              │
-         Synchronization
-              │
-┌─────────────▼─────────────┐
-│        Edge Layer         │
-│ Local Processing / Cache  │
-└─────────────┬─────────────┘
-              │
-          Connectivity
-              │
-┌─────────────▼─────────────┐
-│       IoT Layer           │
-│ Sensors • Nodes • Devices │
-└───────────────────────────┘
-```
-This approach is particularly important for environments where connectivity can be intermittent, expensive or unavailable.
+loop within the available development window.
 
-🤖 AI + Physical Systems
+Industrial Deployment
 
-HazardEye is part of a broader exploration into Physical AI.
+For real industrial deployment, the architecture can evolve towards:
 
-Traditional software primarily operates on digital information.
+Industrial-grade controllers
+Robust sensor nodes
+Industrial communication protocols
+AWS IoT infrastructure
+Secure device management
+Scalable cloud analytics
+Production-grade AI/ML pipelines
 
-Physical AI extends intelligence into environments where software interacts with:
+This allows the prototype architecture to evolve without replacing the overall product concept.
 
-Machines
-Sensors
-Robots
-Infrastructure
-Industrial equipment
-The physical environment
-
-HazardEye explores this intersection:
-```
-             AI
-              │
-              ▼
-        ┌───────────┐
-        │ Intelligence│
-        └─────┬─────┘
-              │
-      ┌───────┴───────┐
-      ▼               ▼
-    DIGITAL         PHYSICAL
-      │               │
- Analytics         Sensors
- Software          Machines
- Data              Infrastructure
-      │               │
-      └───────┬───────┘
-              ▼
-        PHYSICAL AI
-```
-        
-🧩 Technology Stack
+🛠️ Technology Stack
 Software
 React
 TypeScript
 Vite
 Modular frontend architecture
+Real-time monitoring
 Data visualization
-Real-time monitoring concepts
 IoT / Hardware
 ESP32-class edge devices
 Industrial sensors
-Telemetry systems
-Wireless connectivity
+IoT sensor nodes
 Edge processing
-Intelligence
+Wireless connectivity
 AI / ML
+TensorFlow Lite Micro / TinyML
 Anomaly detection
 Predictive analytics
-Data-driven decision support
-🛠️ Engineering Philosophy
+AI-assisted decision support
+Current Prototype Backend
+Firebase
+Hackathon / Production Direction
+AWS IoT
+Cloud telemetry
+Scalable device connectivity
+Industrial-grade deployment architecture
+```
+📂 Repository Structure
+.
+├── hardware/
+│   └── Hardware and edge-AI related resources
+│
+├── software/
+│   └── HazardEye software platform
+│
+├── docs/
+│   ├── homepage.png
+│   ├── dashboard.png
+│   ├── architecture.png
+│   ├── workflow.png
+│   └── MVP-hardware.jpg
+│
+└── README.md
+```
+---
+🔄 Product Evolution
 
-HazardEye is built around a simple principle:
-
-Don't just collect data. Make the physical world understandable.
-
-The system is designed to evolve from simple monitoring into a platform capable of understanding machine behaviour and helping people act before failures or unsafe conditions become serious.
-
-📈 Evolution
-
-HazardEye began as a college project focused on industrial safety and machine monitoring.
-
-Building the first prototype demonstrated something important:
-
-Hardware becomes significantly more useful when it can understand, communicate and act on the data it generates.
-
-That led to the development of a broader architecture combining:
-
-Hardware → Connectivity → Telemetry → Software → AI → Action
-
-HazardEye is now one of the technology projects contributing to the broader product and research direction of SYGNIX.
-
-🚀 Future Direction
-
-The roadmap goes beyond monitoring.
-
-From:
+HazardEye is being developed around a larger progression:
 ```
 Monitoring
-
-↓
-
+     ↓
 Detection
-
-↓
-
+     ↓
 Understanding
-
-↓
-
+     ↓
 Prediction
+     ↓
+Intelligent Response
 
-↓
-
-Autonomous Response
+The long-term objective is to build systems that can continuously sense physical environments, understand their state and assist humans in making better operational and safety decisions.
 ```
-The long-term vision is to build systems where physical infrastructure can continuously sense its environment, understand its state and intelligently assist humans in making decisions.
+---
+🌐 Physical AI
 
-📂 Repository Scope
-
-This repository intentionally contains the software source architecture (src/) of HazardEye.
-
-Development-specific configuration, environment variables, credentials, generated builds and private infrastructure are not included.
-
-The purpose of this repository is to showcase:
-
-Software architecture
-Feature organization
-Engineering approach
-Product modules
-IoT-to-software integration direction
-
-🏆 Origin
-
-HazardEye was developed as a college innovation project and became the first major project around which the team began exploring a larger startup direction.
-
-The project later contributed to the formation and product-building journey of:
-
-SYGNIX
-
-Building at the intersection of
+HazardEye explores the intersection of:
 
 AI × IoT × Hardware × Software × Physical Systems
-👨‍💻 Team
-Team SYGNIX
 
-A multidisciplinary team working across:
+Instead of intelligence existing only inside software, HazardEye brings intelligence closer to the physical world — machines, sensors, infrastructure and people.
 
-Hardware
-Embedded Systems
-Software Engineering
-AI / ML
-Product Development
-Design
-Research & Development
+🏆 About the Project
 
-🔗 Project
+HazardEye originated as a college innovation project focused on industrial safety and machine monitoring.
 
-HazardEye — Industrial Intelligence & Safety Platform
+The project evolved into a broader exploration of AI-powered Industrial IoT and Physical AI, and now contributes to the product-building direction of SYGNIX.
 
-Sense the physical world. Understand it. Act on it.
+👨‍💻 Team SYGNIX
 
-Built with curiosity, hardware, late nights and way too much debugging. ⚡
+Swadeep Bansode — Lead & System Architecture
+Shreyash Chavan — Backend Development & IoT Communication
+Harsh Poojari — Frontend Development & Web Dashboard
+
+🎯 Vision
+
+Don't just collect industrial data. Make the physical world understandable.
+
+HazardEye — Safer Machines. Stronger Industries.
