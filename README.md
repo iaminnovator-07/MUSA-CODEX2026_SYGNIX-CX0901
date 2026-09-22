@@ -41,7 +41,7 @@ Built by **Team SYGNIX** for **MUSA CODEX 2026 — CX0901**.
 
 ### Hardware MVP
 
-![HazardEye Hardware MVP](./docs/MVP-hardware.jpg)
+![HazardEye Hardware MVP](./docs/MVP-hardware.jpeg)
 
 ---
 
