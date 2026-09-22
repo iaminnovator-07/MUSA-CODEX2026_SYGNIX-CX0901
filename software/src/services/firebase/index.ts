@@ -8,14 +8,14 @@ import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, si
 // These are public/publishable keys — safe to store in code
 // ==============================================
 const firebaseConfig = {
-  apiKey: "AIzaSyBgRxlf-EzmNeaf__fn6XcRhUbrHN_3iy4",
-  authDomain: "machinesentinel-e61df.firebaseapp.com",
-  databaseURL: "https://machinesentinel-e61df-default-rtdb.firebaseio.com",
-  projectId: "machinesentinel-e61df",
-  storageBucket: "machinesentinel-e61df.firebasestorage.app",
-  messagingSenderId: "347349716454",
-  appId: "1:347349716454:web:7f2db3c9fce7a19295da27",
-  measurementId: "G-J871SD10D9"
+  apiKey: "",
+  authDomain: "",
+  databaseURL: "",
+  projectId: "",
+  storageBucket: "",
+  messagingSenderId: "",
+  appId: "",
+  measurementId: ""
 };
 
 const app = initializeApp(firebaseConfig);
