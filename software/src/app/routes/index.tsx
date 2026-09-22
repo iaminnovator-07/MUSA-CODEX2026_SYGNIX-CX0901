@@ -12,9 +12,6 @@ const AppRoutes = () => (
       <Route path="/dashboard" element={<DashboardPage />} />
       <Route path="/analytics" element={<AnalyticsPage />} />
       <Route path="/machine/:deviceId" element={<MachineDetailPage />} />
-      <Route path="/demo" element={<DashboardPage />} />
-      <Route path="/demo/analytics" element={<AnalyticsPage />} />
-      <Route path="/demo/machine/:deviceId" element={<MachineDetailPage />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   </BrowserRouter>

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
@@ -10,81 +10,66 @@ import { database, ref, onValue, set } from "@/services/firebase";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { Button } from "@/shared/components/ui/button";
 import AddDeviceDialog from "@/features/machines/components/AddDeviceDialog";
+import { subscribeToUserMachines } from "@/features/machines/services/machineService";
+import { subscribeToCurrentTelemetry } from "@/features/telemetry/services/telemetryService";
+import type { Machine } from "@/features/machines/types/machineTypes";
+import type { SensorReading, TelemetryPoint } from "@/features/telemetry/types/telemetryTypes";
 import { useToast } from "@/shared/hooks/use-toast";
-import type { DemoDevice, DemoMetricPoint, DemoSensorData, DemoThresholds } from "@/features/demo/types/demoTypes";
-import {
-  buildAlertList,
-  buildDemoSeries,
-  defaultThresholds,
-  demoDevices,
-  demoProfiles,
-  demoSensorMap,
-  getHealthScore,
-  getRiskLabel,
-} from "@/features/demo/data/demoData";
 
-type Device = DemoDevice;
-type SensorData = DemoSensorData;
-type Thresholds = DemoThresholds;
-type MetricPoint = DemoMetricPoint;
+type Device = Machine;
+type SensorData = SensorReading;
+type Thresholds = { tempMax: number; vibMax: number; distMin: number };
+type MetricPoint = TelemetryPoint;
+
+const defaultThresholds: Thresholds = { tempMax: 38, vibMax: 4, distMin: 30 };
+
+const getHealthScore = (sensor: SensorData | null, thresholds: Thresholds) => {
+  if (!sensor) return null;
+  let score = 100;
+  score -= Math.max(0, sensor.temperature - thresholds.tempMax) * 1.5;
+  score -= Math.max(0, sensor.vibration - thresholds.vibMax) * 12;
+  score -= Math.max(0, thresholds.distMin - sensor.distance) * 0.7;
+  return Math.max(0, Math.min(100, Math.round(score)));
+};
+
+const getRiskLabel = (score: number | null) => {
+  if (score === null) return "UNKNOWN";
+  if (score >= 85) return "LOW";
+  if (score >= 72) return "MEDIUM";
+  return "HIGH";
+};
 
 const OFFLINE_TIMEOUT = 60000;
 
 const Dashboard = () => {
   const { user, logout } = useAuth();
   const { toast } = useToast();
-  const [devices, setDevices] = useState<Device[]>(demoDevices);
-  const [selectedDevice, setSelectedDevice] = useState<string | null>("demo-01");
-  const [sensorData, setSensorData] = useState<SensorData | null>(demoSensorMap["demo-01"]);
-  const [isOnline, setIsOnline] = useState(true);
-  const [lastSeen, setLastSeen] = useState<number | null>(Date.now());
+  const [devices, setDevices] = useState<Device[]>([]);
+  const [selectedDevice, setSelectedDevice] = useState<string | null>(null);
+  const [sensorData, setSensorData] = useState<SensorData | null>(null);
+  const [isOnline, setIsOnline] = useState(false);
+  const [lastSeen, setLastSeen] = useState<number | null>(null);
   const [thresholds, setThresholds] = useState<Thresholds>(defaultThresholds);
-  const [alerts, setAlerts] = useState<string[]>(buildAlertList("demo-01", defaultThresholds));
-  const [distData, setDistData] = useState<MetricPoint[]>(buildDemoSeries("demo-01", "distance"));
-  const [vibData, setVibData] = useState<MetricPoint[]>(buildDemoSeries("demo-02", "vibration"));
-  const [tempData, setTempData] = useState<MetricPoint[]>(buildDemoSeries("demo-01", "temperature"));
-  const [powerData, setPowerData] = useState<MetricPoint[]>(buildDemoSeries("demo-01", "power"));
-  const [isDemoMode, setIsDemoMode] = useState(true);
+  const [alerts, setAlerts] = useState<string[]>([]);
+  const [distData, setDistData] = useState<MetricPoint[]>([]);
+  const [vibData, setVibData] = useState<MetricPoint[]>([]);
+  const [tempData, setTempData] = useState<MetricPoint[]>([]);
+  const [powerData, setPowerData] = useState<MetricPoint[]>([]);
   const [selectedTwinNode, setSelectedTwinNode] = useState("Spindle head");
   const [twinRotation, setTwinRotation] = useState(0);
   const twinDragStart = useRef<number | null>(null);
 
-  const loadDevices = useCallback(() => {
-    if (!user) {
-      setDevices(demoDevices);
-      setSelectedDevice((prev) => prev || "demo-01");
-      setIsDemoMode(true);
-      return undefined;
-    }
-
-    const unsub = onValue(ref(database, "devices"), (snap) => {
-      const data = snap.val();
-      if (!data) {
-        setDevices(demoDevices);
-        setSelectedDevice((prev) => prev || "demo-01");
-        setIsDemoMode(true);
-        return;
-      }
-
-      const userDevices = Object.values(data as Record<string, Device>).filter((d) => d.user_id === user.uid);
-      if (userDevices.length === 0) {
-        setDevices(demoDevices);
-        setSelectedDevice((prev) => prev || "demo-01");
-        setIsDemoMode(true);
-        return;
-      }
-
-      setDevices(userDevices);
-      setIsDemoMode(false);
-      if (!selectedDevice) setSelectedDevice(userDevices[0].device_id);
-    });
-    return unsub;
-  }, [user, selectedDevice]);
-
   useEffect(() => {
-    const unsub = loadDevices();
-    return () => unsub?.();
-  }, [loadDevices]);
+    if (!user) {
+      setDevices([]);
+      setSelectedDevice(null);
+      return;
+    }
+    return subscribeToUserMachines(user.uid, (userDevices) => {
+      setDevices(userDevices);
+      setSelectedDevice((previous) => previous && userDevices.some((device) => device.device_id === previous) ? previous : userDevices[0]?.device_id ?? null);
+    });
+  }, [user]);
 
   useEffect(() => {
     if (!user || !selectedDevice) return;
@@ -96,68 +81,46 @@ const Dashboard = () => {
   }, [user, selectedDevice]);
 
   useEffect(() => {
-    if (!selectedDevice) return;
+    if (!selectedDevice) {
+      setSensorData(null);
+      setIsOnline(false);
+      setAlerts([]);
+      return;
+    }
     setDistData([]);
     setVibData([]);
     setTempData([]);
     setPowerData([]);
     setSensorData(null);
 
-    if (isDemoMode || selectedDevice.startsWith("demo-")) {
-      const demoData = demoSensorMap[selectedDevice] ?? demoSensorMap["demo-01"];
-      const ts = demoData.timestamp || Date.now();
-      setLastSeen(ts);
-      setIsOnline(true);
-      setSensorData(demoData);
-
-      const profile = demoProfiles[selectedDevice] ?? demoProfiles["demo-01"];
-      setDistData(buildDemoSeries(selectedDevice, "distance"));
-      setVibData(buildDemoSeries(selectedDevice, "vibration"));
-      setTempData(buildDemoSeries(selectedDevice, "temperature"));
-      setPowerData(buildDemoSeries(selectedDevice, "power"));
-
-      const nextAlerts = buildAlertList(selectedDevice, thresholds);
-      setAlerts(nextAlerts);
-
-      if (profile.health < 80) setAlerts((prev) => [...new Set([...prev, `⚠ ${profile.condition} condition on ${demoDevices.find((d) => d.device_id === selectedDevice)?.device_name || "machine"}.`])]);
-      return;
-    }
-
-    const unsub = onValue(ref(database, `sensorData/${selectedDevice}/current`), (snap) => {
-      const data = snap.val();
-      if (!data) {
+    const unsub = subscribeToCurrentTelemetry(selectedDevice, (reading) => {
+      if (!reading) {
+        setSensorData(null);
         setIsOnline(false);
+        setLastSeen(null);
+        setAlerts([]);
         return;
       }
 
       const now = Date.now();
-      const rawTs = data.timestamp || now;
-      const ts = rawTs < 1e12 ? rawTs * 1000 : rawTs;
-      setLastSeen(ts);
-      setIsOnline(now - ts < OFFLINE_TIMEOUT);
-
-      const sd: SensorData = {
-        temperature: Number(data.temperature) || 0,
-        vibration: Number(data.vibration) || 0,
-        distance: Number(data.distance) || 0,
-        power: Number(data.power) || 0.8,
-        timestamp: ts,
-      };
-      setSensorData(sd);
-      setTempData((prev) => [...prev.slice(-29), { time: new Date(ts).toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit" }), value: sd.temperature }]);
-      setVibData((prev) => [...prev.slice(-29), { time: new Date(ts).toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit" }), value: sd.vibration }]);
-      setDistData((prev) => [...prev.slice(-29), { time: new Date(ts).toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit" }), value: sd.distance }]);
-      setPowerData((prev) => [...prev.slice(-29), { time: new Date(ts).toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit" }), value: sd.power ?? 0.8 }]);
+      const time = new Date(reading.timestamp).toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit" });
+      setLastSeen(reading.timestamp);
+      setIsOnline(now - reading.timestamp < OFFLINE_TIMEOUT);
+      setSensorData(reading);
+      setTempData((prev) => [...prev.slice(-29), { time, value: reading.temperature }]);
+      setVibData((prev) => [...prev.slice(-29), { time, value: reading.vibration }]);
+      setDistData((prev) => [...prev.slice(-29), { time, value: reading.distance }]);
+      setPowerData((prev) => [...prev.slice(-29), { time, value: reading.power ?? 0 }]);
 
       const nextAlerts: string[] = [];
-      if (sd.temperature > thresholds.tempMax) nextAlerts.push(`🌡️ Temperature ${sd.temperature}°C exceeds ${thresholds.tempMax}°C`);
-      if (sd.vibration > thresholds.vibMax) nextAlerts.push(`📳 Vibration ${sd.vibration}g exceeds ${thresholds.vibMax}g`);
-      if (sd.distance < thresholds.distMin && sd.distance > 0) nextAlerts.push(`📏 Distance ${sd.distance}cm below ${thresholds.distMin}cm`);
-      setAlerts(nextAlerts.length ? nextAlerts : [`✓ ${selectedDevice} operating within normal parameters.`]);
+      if (reading.temperature > thresholds.tempMax) nextAlerts.push(`Temperature ${reading.temperature}°C exceeds ${thresholds.tempMax}°C`);
+      if (reading.vibration > thresholds.vibMax) nextAlerts.push(`Vibration ${reading.vibration}g exceeds ${thresholds.vibMax}g`);
+      if (reading.distance < thresholds.distMin && reading.distance > 0) nextAlerts.push(`Distance ${reading.distance}cm below ${thresholds.distMin}cm`);
+      setAlerts(nextAlerts.length ? nextAlerts : [`${selectedDevice} operating within normal parameters.`]);
     });
 
     return unsub;
-  }, [selectedDevice, thresholds, isDemoMode]);
+  }, [selectedDevice, thresholds]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -174,15 +137,14 @@ const Dashboard = () => {
   };
 
   const currentDevice = devices.find((d) => d.device_id === selectedDevice);
-  const currentProfile = demoProfiles[selectedDevice ?? "demo-01"] ?? demoProfiles["demo-01"];
   const liveHealth = useMemo(() => getHealthScore(sensorData, thresholds), [sensorData, thresholds]);
   const healthRisk = getRiskLabel(liveHealth);
   const twinNodes = [
-    { label: "Spindle head", area: "Precision drive", status: "Healthy", value: `${sensorData?.vibration ?? currentProfile.vib} g`, className: "left-[46%] top-[22%]" },
-    { label: "Work chamber", area: "Enclosed cutting zone", status: "Monitored", value: `${sensorData?.temperature ?? currentProfile.temp}°C`, className: "left-[44%] top-[48%]" },
-    { label: "Machine table", area: "Workholding surface", status: "Healthy", value: `${sensorData?.distance ?? currentProfile.dist} cm`, className: "left-[47%] top-[72%]" },
-    { label: "Drive unit", area: "Base power module", status: "Efficient", value: `${sensorData?.power ?? currentProfile.power} kW`, className: "left-[25%] top-[82%]" },
-    { label: "Control station", area: "Operator interface", status: "Connected", value: "Online", className: "left-[82%] top-[48%]" },
+    { label: "Spindle head", area: "Precision drive", status: sensorData ? "Healthy" : "Awaiting data", value: sensorData ? `${sensorData.vibration} g` : "--", className: "left-[46%] top-[22%]" },
+    { label: "Work chamber", area: "Enclosed cutting zone", status: sensorData ? "Monitored" : "Awaiting data", value: sensorData ? `${sensorData.temperature}°C` : "--", className: "left-[44%] top-[48%]" },
+    { label: "Machine table", area: "Workholding surface", status: sensorData ? "Healthy" : "Awaiting data", value: sensorData ? `${sensorData.distance} cm` : "--", className: "left-[47%] top-[72%]" },
+    { label: "Drive unit", area: "Base power module", status: sensorData ? "Efficient" : "Awaiting data", value: sensorData ? `${sensorData.power ?? 0} kW` : "--", className: "left-[25%] top-[82%]" },
+    { label: "Control station", area: "Operator interface", status: isOnline ? "Connected" : "Offline", value: isOnline ? "Online" : "Offline", className: "left-[82%] top-[48%]" },
   ];
   const activeTwinNode = twinNodes.find((node) => node.label === selectedTwinNode) ?? twinNodes[0];
 
@@ -241,7 +203,7 @@ const Dashboard = () => {
 
           <nav className="hidden min-w-0 flex-1 items-center justify-start gap-3 overflow-x-auto overflow-y-hidden lg:flex xl:gap-5">
             {navItems.map((item) => item === "Reports" ? (
-              <Link key={item} to={isDemoMode ? "/demo/analytics" : "/analytics"} className="shrink-0 whitespace-nowrap text-[0.6rem] font-medium uppercase tracking-[0.14em] text-muted-foreground transition-colors hover:text-foreground xl:text-[0.65rem]">
+              <Link key={item} to="/analytics" className="shrink-0 whitespace-nowrap text-[0.6rem] font-medium uppercase tracking-[0.14em] text-muted-foreground transition-colors hover:text-foreground xl:text-[0.65rem]">
                 {item}
               </Link>
             ) : (
@@ -261,7 +223,7 @@ const Dashboard = () => {
               <Clock className="h-3 w-3 text-primary" />
               <span className="whitespace-nowrap">Last sync {new Date(lastSeen ?? Date.now()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
             </div>
-            <Link to={isDemoMode ? "/demo/analytics" : "/analytics"} className="whitespace-nowrap text-[0.65rem] text-muted-foreground hover:text-primary">Analytics</Link>
+            <Link to="/analytics" className="whitespace-nowrap text-[0.65rem] text-muted-foreground hover:text-primary">Analytics</Link>
             <div className="h-5 w-px bg-border" />
             <span className="hidden max-w-[100px] truncate text-[0.65rem] text-muted-foreground 2xl:inline">{user?.displayName || user?.email}</span>
             <Button variant="ghost" size="icon" onClick={logout} title="Logout">
@@ -283,8 +245,8 @@ const Dashboard = () => {
           </div>
 
           <div className="flex items-center gap-3">
-            <span className="inline-flex items-center rounded-full border border-primary/20 bg-primary/5 px-2.5 py-1.5 text-[0.56rem] font-display tracking-[0.22em] text-primary">{isDemoMode ? "DEMO DATA" : "LIVE DATA"}</span>
-            {!isDemoMode && <AddDeviceDialog onDeviceAdded={() => {}} />}
+              <span className="inline-flex items-center rounded-full border border-primary/20 bg-primary/5 px-2.5 py-1.5 text-[0.56rem] font-display tracking-[0.22em] text-primary">LIVE DATA</span>
+              <AddDeviceDialog onDeviceAdded={() => {}} />
           </div>
         </div>
 
@@ -312,10 +274,10 @@ const Dashboard = () => {
                 <div className="relative flex h-full w-full items-center justify-center rounded-full border border-primary/30">
                   <div className="absolute inset-4 rounded-full border border-dashed border-primary/20" />
                   <div className="absolute inset-7 rounded-full border border-primary/10" />
-                  <div className="absolute inset-0 rounded-full" style={{ background: `conic-gradient(hsl(199 95% 60%) ${liveHealth * 3.6}deg, rgba(148,163,184,0.1) 0deg)` }} />
+                      <div className="absolute inset-0 rounded-full" style={{ background: `conic-gradient(hsl(199 95% 60%) ${(liveHealth ?? 0) * 3.6}deg, rgba(148,163,184,0.1) 0deg)` }} />
                   <div className="absolute inset-[18%] rounded-full bg-[#0a1220] border border-border/80 flex flex-col items-center justify-center text-center">
                     <span className="text-[0.62rem] uppercase tracking-[0.18em] text-muted-foreground">Health score</span>
-                    <span className="mt-1 text-3xl font-display font-bold text-white">{liveHealth}</span>
+                    <span className="mt-1 text-3xl font-display font-bold text-white">{liveHealth ?? "--"}</span>
                     <span className="text-[0.58rem] uppercase tracking-[0.2em] text-primary">/100</span>
                   </div>
                 </div>
@@ -324,21 +286,21 @@ const Dashboard = () => {
               <div className="space-y-5">
                 <div>
                   <div className="text-[0.62rem] font-display tracking-[0.22em] text-muted-foreground uppercase">Condition</div>
-                  <div className="mt-2 text-3xl font-display font-bold text-white">{healthRisk === "LOW" ? "Healthy" : healthRisk === "MEDIUM" ? "Watch" : "Critical"}</div>
+                  <div className="mt-2 text-3xl font-display font-bold text-white">{healthRisk === "LOW" ? "Healthy" : healthRisk === "MEDIUM" ? "Watch" : healthRisk === "HIGH" ? "Critical" : "Awaiting data"}</div>
                 </div>
 
                 <div className="grid gap-3 md:grid-cols-2">
-                  <MetricRow label="Temperature" value={`${sensorData?.temperature ?? currentProfile.temp}°C`} status="Normal" />
-                  <MetricRow label="Vibration" value={`${sensorData?.vibration ?? currentProfile.vib} g`} status={sensorData && sensorData.vibration > thresholds.vibMax ? "Elevated" : "Normal"} />
-                  <MetricRow label="Distance" value={`${sensorData?.distance ?? currentProfile.dist} cm`} status="Normal" />
-                  <MetricRow label="Power" value={`${sensorData?.power ?? currentProfile.power} kW`} status="Efficient" />
+                  <MetricRow label="Temperature" value={sensorData ? `${sensorData.temperature}°C` : "--"} status={sensorData ? "Live" : "Awaiting data"} />
+                  <MetricRow label="Vibration" value={sensorData ? `${sensorData.vibration} g` : "--"} status={sensorData && sensorData.vibration > thresholds.vibMax ? "Elevated" : sensorData ? "Live" : "Awaiting data"} />
+                  <MetricRow label="Distance" value={sensorData ? `${sensorData.distance} cm` : "--"} status={sensorData ? "Live" : "Awaiting data"} />
+                  <MetricRow label="Power" value={sensorData ? `${sensorData.power ?? 0} kW` : "--"} status={sensorData ? "Live" : "Awaiting data"} />
                 </div>
 
                 <div className="rounded-lg border border-border bg-secondary/50 p-3">
                   <div className="text-[0.58rem] uppercase tracking-[0.2em] text-muted-foreground">Predicted condition</div>
-                  <div className="mt-2 text-base text-white">{currentProfile.condition}</div>
+                  <div className="mt-2 text-base text-white">{sensorData ? "Based on current telemetry" : "Awaiting telemetry"}</div>
                   <div className="mt-3 text-[0.58rem] uppercase tracking-[0.18em] text-muted-foreground">Next recommended inspection</div>
-                  <div className="mt-1 text-sm text-primary">{currentProfile.nextInspection}</div>
+                  <div className="mt-1 text-sm text-primary">{sensorData ? "Review live readings" : "Unavailable"}</div>
                 </div>
               </div>
             </div>
@@ -351,10 +313,7 @@ const Dashboard = () => {
             </div>
 
             <div className="space-y-3">
-              <InsightRow tone="ok">Machine 01 operating within normal parameters.</InsightRow>
-              <InsightRow tone={currentProfile.risk === "MEDIUM" ? "warn" : "ok"}>Machine 02 vibration increased 18% over baseline.</InsightRow>
-              <InsightRow tone="ok">No critical thermal anomalies detected.</InsightRow>
-              <InsightRow tone="ok">Energy consumption is within expected operating range.</InsightRow>
+              {alerts.length ? alerts.map((alert) => <InsightRow key={alert} tone="warn">{alert}</InsightRow>) : <InsightRow tone="ok">No live alerts for the selected machine.</InsightRow>}
             </div>
 
             <div className="mt-6 rounded-md border border-primary/20 bg-primary/5 p-3 text-[0.58rem] font-display tracking-[0.18em] text-primary uppercase">
@@ -373,10 +332,9 @@ const Dashboard = () => {
 
           <div className="grid gap-4 lg:grid-cols-3">
             {devices.map((machine) => {
-              const profile = demoProfiles[machine.device_id] ?? demoProfiles["demo-01"];
-              const score = machine.device_id.startsWith("demo-") ? profile.health : liveHealth;
+              const score = machine.device_id === selectedDevice ? liveHealth : null;
               const risk = getRiskLabel(score);
-              const status = isOnline ? "ONLINE" : "OFFLINE";
+              const status = machine.device_id === selectedDevice && isOnline ? "ONLINE" : "OFFLINE";
 
               return (
                 <motion.div key={machine.device_id} initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} className="glass-card-hover p-5">
@@ -388,13 +346,13 @@ const Dashboard = () => {
                         {status}
                       </div>
                     </div>
-                    <div className="rounded-full border border-border bg-secondary/70 px-2 py-1 text-[0.56rem] font-display tracking-[0.18em] text-muted-foreground">{score}%</div>
+                    <div className="rounded-full border border-border bg-secondary/70 px-2 py-1 text-[0.56rem] font-display tracking-[0.18em] text-muted-foreground">{score === null ? "--" : `${score}%`}</div>
                   </div>
 
                   <div className="mb-4 grid grid-cols-2 gap-3 text-sm text-muted-foreground">
                     <div>
                       <div className="text-[0.56rem] uppercase tracking-[0.18em] text-muted-foreground">Health</div>
-                      <div className="mt-1 text-lg font-display text-white">{score}%</div>
+                      <div className="mt-1 text-lg font-display text-white">{score === null ? "--" : `${score}%`}</div>
                     </div>
                     <div>
                       <div className="text-[0.56rem] uppercase tracking-[0.18em] text-muted-foreground">Risk</div>
@@ -403,13 +361,13 @@ const Dashboard = () => {
                   </div>
 
                   <div className="space-y-2 text-sm text-muted-foreground">
-                    <div className="flex items-center justify-between border-b border-border/70 pb-2"><span>Temp</span><span className="text-white">{profile.temp}°C</span></div>
-                    <div className="flex items-center justify-between border-b border-border/70 pb-2"><span>Vibration</span><span className="text-white">{profile.vib} g</span></div>
-                    <div className="flex items-center justify-between border-b border-border/70 pb-2"><span>Power</span><span className="text-white">{profile.power} kW</span></div>
-                    <div className="flex items-center justify-between"><span>Last sync</span><span className="text-white">00:42</span></div>
+                    <div className="flex items-center justify-between border-b border-border/70 pb-2"><span>Temp</span><span className="text-white">{machine.device_id === selectedDevice && sensorData ? `${sensorData.temperature}°C` : "--"}</span></div>
+                    <div className="flex items-center justify-between border-b border-border/70 pb-2"><span>Vibration</span><span className="text-white">{machine.device_id === selectedDevice && sensorData ? `${sensorData.vibration} g` : "--"}</span></div>
+                    <div className="flex items-center justify-between border-b border-border/70 pb-2"><span>Power</span><span className="text-white">{machine.device_id === selectedDevice && sensorData ? `${sensorData.power ?? 0} kW` : "--"}</span></div>
+                    <div className="flex items-center justify-between"><span>Last sync</span><span className="text-white">{machine.device_id === selectedDevice && lastSeen ? new Date(lastSeen).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--"}</span></div>
                   </div>
 
-                  <Link to={`${isDemoMode ? "/demo/machine" : "/machine"}/${machine.device_id}`} className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-[0.62rem] font-display tracking-[0.18em] text-primary transition hover:bg-primary/10">
+                  <Link to={`/machine/${machine.device_id}`} className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-[0.62rem] font-display tracking-[0.18em] text-primary transition hover:bg-primary/10">
                     VIEW MACHINE
                     <ChevronRight className="h-3.5 w-3.5" />
                   </Link>
@@ -483,7 +441,7 @@ const Dashboard = () => {
               </div>
               <div className="relative flex items-center justify-between text-[0.56rem] font-display tracking-[0.18em] text-muted-foreground uppercase">
                 <span>Drag to rotate 360°</span>
-                <span className="text-primary">{isDemoMode ? "simulated twin" : "live twin"}</span>
+                <span className="text-primary">live twin</span>
               </div>
             </div>
 
@@ -519,9 +477,9 @@ const Dashboard = () => {
             </div>
 
             <div className="space-y-4">
-              <TelemetryChart title="Temperature" value={`${sensorData?.temperature ?? currentProfile.temp}°C`} threshold={`${defaultThresholds.tempMax}°C`} data={tempData} color="hsl(199,95%,60%)" />
-              <TelemetryChart title="Vibration" value={`${sensorData?.vibration ?? currentProfile.vib} g`} threshold={`${defaultThresholds.vibMax} g`} data={vibData} color="hsl(39,95%,60%)" />
-              <TelemetryChart title="Distance" value={`${sensorData?.distance ?? currentProfile.dist} cm`} threshold={`${defaultThresholds.distMin} cm`} data={distData} color="hsl(175,80%,52%)" />
+              <TelemetryChart title="Temperature" value={sensorData ? `${sensorData.temperature}°C` : "--"} threshold={`${defaultThresholds.tempMax}°C`} data={tempData} color="hsl(199,95%,60%)" />
+              <TelemetryChart title="Vibration" value={sensorData ? `${sensorData.vibration} g` : "--"} threshold={`${defaultThresholds.vibMax} g`} data={vibData} color="hsl(39,95%,60%)" />
+              <TelemetryChart title="Distance" value={sensorData ? `${sensorData.distance} cm` : "--"} threshold={`${defaultThresholds.distMin} cm`} data={distData} color="hsl(175,80%,52%)" />
             </div>
           </div>
 

@@ -3,16 +3,15 @@ import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Shield, ArrowLeft, BarChart3, Clock, Cpu, Activity, Thermometer, Radio, Zap } from "lucide-react";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
-import { database, ref, onValue, query, orderByChild, limitToLast } from "@/services/firebase";
+import { subscribeToUserMachines } from "@/features/machines/services/machineService";
+import { subscribeToTelemetryHistory } from "@/features/telemetry/services/telemetryService";
+import type { Machine } from "@/features/machines/types/machineTypes";
+import type { SensorReading } from "@/features/telemetry/types/telemetryTypes";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { Button } from "@/shared/components/ui/button";
-import { loadDemoHistory, saveDemoHistory, DemoHistoryEntry } from "@/features/demo/services/demoDatabase";
-import type { DemoDevice } from "@/features/demo/types/demoTypes";
-import { buildDemoHistory, demoDevices, getDemoProfile } from "@/features/demo/data/demoData";
 
-type Device = DemoDevice;
-
-type HistoryEntry = DemoHistoryEntry;
+type Device = Machine;
+type HistoryEntry = SensorReading;
 
 type TimeRange = "1h" | "24h" | "7d";
 
@@ -29,37 +28,19 @@ const Analytics = () => {
   const [selectedDevice, setSelectedDevice] = useState<string | null>(null);
   const [range, setRange] = useState<TimeRange>("1h");
   const [historyData, setHistoryData] = useState<HistoryEntry[]>([]);
-  const [isDemoMode, setIsDemoMode] = useState(true);
-  const [lastPacketAt, setLastPacketAt] = useState(Date.now());
+  const [lastPacketAt, setLastPacketAt] = useState<number | null>(null);
 
   // Load devices
   useEffect(() => {
     if (!user) {
-      setDevices(demoDevices);
-      setSelectedDevice((previous) => previous || "demo-01");
-      setIsDemoMode(true);
-      return undefined;
+      setDevices([]);
+      setSelectedDevice(null);
+      return;
     }
-    const unsub = onValue(ref(database, "devices"), (snap) => {
-      const data = snap.val();
-      if (!data) {
-        setDevices(demoDevices);
-        setSelectedDevice((previous) => previous || "demo-01");
-        setIsDemoMode(true);
-        return;
-      }
-      const userDevices = Object.values(data as Record<string, Device>).filter((d) => d.user_id === user.uid);
-      if (userDevices.length === 0) {
-        setDevices(demoDevices);
-        setSelectedDevice((previous) => previous || "demo-01");
-        setIsDemoMode(true);
-        return;
-      }
+    return subscribeToUserMachines(user.uid, (userDevices) => {
       setDevices(userDevices);
-      setIsDemoMode(false);
-      if (userDevices.length > 0 && !selectedDevice) setSelectedDevice(userDevices[0].device_id);
+      setSelectedDevice((previous) => previous && userDevices.some((device) => device.device_id === previous) ? previous : userDevices[0]?.device_id ?? null);
     });
-    return unsub;
   }, [user]);
 
   // Load history
@@ -67,54 +48,13 @@ const Analytics = () => {
     if (!selectedDevice) return;
     const config = RANGE_CONFIG[range];
 
-    if (isDemoMode || selectedDevice.startsWith("demo-")) {
-      const persisted = loadDemoHistory(selectedDevice, Date.now() - config.ms);
-      const seeded = persisted.length ? persisted : buildDemoHistory(selectedDevice, range);
-      setHistoryData(seeded);
-      saveDemoHistory(selectedDevice, seeded);
-      setLastPacketAt(Date.now());
-
-      const profile = getDemoProfile(selectedDevice);
-      const stream = window.setInterval(() => {
-        const wave = Math.sin(Date.now() / 4200);
-        const nextEntry: HistoryEntry = {
-          temperature: Number((profile.temp + wave * 3).toFixed(1)),
-          vibration: Number((profile.vib + wave * 0.45 + (selectedDevice === "demo-02" ? 0.18 : 0)).toFixed(2)),
-          distance: Number((profile.dist + wave * 4).toFixed(1)),
-          power: Number((profile.power + wave * 0.08).toFixed(2)),
-          timestamp: Date.now(),
-        };
-
-        setHistoryData((previous) => {
-          const nextHistory = [...previous.slice(-(config.limit - 1)), nextEntry];
-          saveDemoHistory(selectedDevice, nextHistory);
-          return nextHistory;
-        });
-        setLastPacketAt(nextEntry.timestamp);
-      }, 3000);
-
-      return () => window.clearInterval(stream);
-    }
-
-    const histRef = query(ref(database, `sensorData/${selectedDevice}/history`), orderByChild("timestamp"), limitToLast(config.limit));
-
-    const unsub = onValue(histRef, (snap) => {
-      const data = snap.val();
-      if (!data) { setHistoryData([]); return; }
-      const now = Date.now();
-      const entries = Object.values(data as Record<string, HistoryEntry>)
-        .map((e) => ({
-          ...e,
-          // Normalize: if timestamp is in seconds (< 1e12), convert to ms
-          timestamp: e.timestamp < 1e12 ? e.timestamp * 1000 : e.timestamp,
-        }))
-        .filter((e) => e.timestamp >= now - config.ms)
-        .sort((a, b) => a.timestamp - b.timestamp);
-      setHistoryData(entries);
-      setLastPacketAt(Date.now());
+    const unsub = subscribeToTelemetryHistory(selectedDevice, config.limit, (entries) => {
+      const filteredEntries = entries.filter((entry) => entry.timestamp >= Date.now() - config.ms);
+      setHistoryData(filteredEntries);
+      setLastPacketAt(filteredEntries.at(-1)?.timestamp ?? null);
     });
     return unsub;
-  }, [selectedDevice, range, isDemoMode]);
+  }, [selectedDevice, range]);
 
   const chartData = historyData.map((e) => ({
     time: range === "7d"
@@ -133,14 +73,14 @@ const Analytics = () => {
     return (sum / historyData.length).toFixed(1);
   };
 
-  const currentProfile = getDemoProfile(selectedDevice ?? undefined);
+  const currentReading = historyData.at(-1);
 
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b border-border bg-background/80 backdrop-blur-xl sticky top-0 z-50">
         <div className="section-container flex items-center justify-between h-16">
           <div className="flex items-center gap-4">
-            <Link to={isDemoMode ? "/demo" : "/dashboard"} className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors">
+            <Link to="/dashboard" className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors">
               <ArrowLeft className="w-4 h-4" />
               <span className="text-sm">Dashboard</span>
             </Link>
@@ -161,8 +101,8 @@ const Analytics = () => {
         </div>
 
         <div className="mb-6 flex items-center justify-between rounded-xl border border-primary/20 bg-primary/5 px-4 py-3">
-          <div className="flex items-center gap-3"><span className="relative flex h-2 w-2"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-75" /><span className="relative h-2 w-2 rounded-full bg-success" /></span><span className="text-xs text-foreground">{isDemoMode ? "Demo twin stream is active" : "Live machine history is active"}</span><span className="hidden text-[0.58rem] text-muted-foreground sm:inline">Last packet {new Date(lastPacketAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}</span></div>
-          <span className="text-[0.58rem] font-display tracking-[0.18em] text-primary uppercase">{devices.find((device) => device.device_id === selectedDevice)?.device_name ?? "Machine 01"}</span>
+          <div className="flex items-center gap-3"><span className="relative flex h-2 w-2"><span className="relative h-2 w-2 rounded-full bg-success" /></span><span className="text-xs text-foreground">Live machine history is active</span><span className="hidden text-[0.58rem] text-muted-foreground sm:inline">Last packet {lastPacketAt ? new Date(lastPacketAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "--"}</span></div>
+          <span className="text-[0.58rem] font-display tracking-[0.18em] text-primary uppercase">{devices.find((device) => device.device_id === selectedDevice)?.device_name ?? "No machine selected"}</span>
         </div>
         {/* Device + Time Range Selectors */}
         <div className="flex flex-col gap-4 mb-6">
@@ -213,16 +153,16 @@ const Analytics = () => {
         </div>
 
         <div className="mb-6 grid gap-4 md:grid-cols-4">
-          <TwinAnalyticsCard icon={Thermometer} label="Current temperature" value={`${currentProfile.temp}°C`} tone="text-primary" />
-          <TwinAnalyticsCard icon={Activity} label="Current vibration" value={`${currentProfile.vib} g`} tone="text-warning" />
-          <TwinAnalyticsCard icon={Radio} label="Work chamber distance" value={`${currentProfile.dist} cm`} tone="text-cyan-300" />
-          <TwinAnalyticsCard icon={Zap} label="Power draw" value={`${currentProfile.power} kW`} tone="text-success" />
+          <TwinAnalyticsCard icon={Thermometer} label="Current temperature" value={currentReading ? `${currentReading.temperature}°C` : "--"} tone="text-primary" />
+          <TwinAnalyticsCard icon={Activity} label="Current vibration" value={currentReading ? `${currentReading.vibration} g` : "--"} tone="text-warning" />
+          <TwinAnalyticsCard icon={Radio} label="Work chamber distance" value={currentReading ? `${currentReading.distance} cm` : "--"} tone="text-cyan-300" />
+          <TwinAnalyticsCard icon={Zap} label="Power draw" value={currentReading ? `${currentReading.power ?? 0} kW` : "--"} tone="text-success" />
         </div>
 
         <div className="mb-6 grid gap-4 lg:grid-cols-3">
-          <TwinComponentRow label="Spindle head" status="Healthy" reading={`${currentProfile.vib} g vibration`} />
-          <TwinComponentRow label="Work chamber" status="Monitored" reading={`${currentProfile.temp}°C thermal load`} />
-          <TwinComponentRow label="Drive unit" status="Efficient" reading={`${currentProfile.power} kW power draw`} />
+          <TwinComponentRow label="Spindle head" status={currentReading ? "Healthy" : "Awaiting data"} reading={currentReading ? `${currentReading.vibration} g vibration` : "No live reading"} />
+          <TwinComponentRow label="Work chamber" status={currentReading ? "Monitored" : "Awaiting data"} reading={currentReading ? `${currentReading.temperature}°C thermal load` : "No live reading"} />
+          <TwinComponentRow label="Drive unit" status={currentReading ? "Efficient" : "Awaiting data"} reading={currentReading ? `${currentReading.power ?? 0} kW power draw` : "No live reading"} />
         </div>
 
         {historyData.length === 0 ? (

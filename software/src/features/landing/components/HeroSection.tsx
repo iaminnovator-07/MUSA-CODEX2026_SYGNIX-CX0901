@@ -58,7 +58,7 @@ const HeroSection = () => {
                 <ChevronRight className="h-4 w-4" />
               </a>
               <Link
-                to="/demo"
+                to="/dashboard"
                 className="inline-flex items-center gap-2 rounded-lg border border-primary/35 bg-primary/5 px-7 py-3 font-display text-xs font-bold tracking-[0.2em] text-primary hover:bg-primary/10 transition-all"
               >
                 <BarChart3 className="h-4 w-4" />
@@ -90,7 +90,7 @@ const HeroSection = () => {
                       <span className="h-1.5 w-1.5 rounded-full bg-success animate-pulse" />
                       ACTIVE
                     </span>
-                    <div className="mt-2 text-[9px] tracking-[0.16em] text-muted-foreground">DEMO STREAM</div>
+                    <div className="mt-2 text-[9px] tracking-[0.16em] text-muted-foreground">LIVE TELEMETRY</div>
                   </div>
                 </div>
 

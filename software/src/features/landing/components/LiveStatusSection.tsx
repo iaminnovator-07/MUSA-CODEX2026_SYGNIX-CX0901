@@ -23,41 +23,14 @@ interface DeviceStatus {
 
 const OFFLINE_TIMEOUT = 60000;
 
-const demoStatuses: DeviceStatus[] = [
-  {
-    device: { device_id: "HX-03", device_name: "Machine 03", user_id: "demo" },
-    isOnline: true,
-    lastSeen: Date.now() - 12000,
-    temperature: 41,
-    vibration: 3.6,
-    distance: 48,
-  },
-  {
-    device: { device_id: "HX-02", device_name: "Machine 02", user_id: "demo" },
-    isOnline: true,
-    lastSeen: Date.now() - 18000,
-    temperature: 45,
-    vibration: 4.4,
-    distance: 52,
-  },
-  {
-    device: { device_id: "HX-01", device_name: "Machine 01", user_id: "demo" },
-    isOnline: true,
-    lastSeen: Date.now() - 9000,
-    temperature: 33,
-    vibration: 2.5,
-    distance: 61,
-  },
-];
-
 const LiveStatusSection = () => {
   const { user } = useAuth();
-  const [statuses, setStatuses] = useState<DeviceStatus[]>(demoStatuses);
+  const [statuses, setStatuses] = useState<DeviceStatus[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!user) {
-      setStatuses(demoStatuses);
+      setStatuses([]);
       setLoading(false);
       return;
     }
@@ -125,7 +98,7 @@ const LiveStatusSection = () => {
     return () => clearInterval(interval);
   }, []);
 
-  const displayStatuses = statuses.length ? statuses : demoStatuses;
+  const displayStatuses = statuses;
   const onlineCount = displayStatuses.filter((s) => s.isOnline).length;
   const offlineCount = displayStatuses.length - onlineCount;
 
@@ -148,7 +121,7 @@ const LiveStatusSection = () => {
             </span>
           </div>
           <h2 className="mb-3 text-3xl font-bold md:text-5xl gradient-text">
-            {user ? "Your devices" : "DEMO DATA"}
+            {user ? "Your devices" : "Sign in to view devices"}
           </h2>
           <div className="flex items-center justify-center gap-6 text-sm">
             <span className="flex items-center gap-1.5 text-success">
@@ -219,14 +192,15 @@ const LiveStatusSection = () => {
               </div>
             </motion.div>
           ))}
+          {!displayStatuses.length && <p className="col-span-full py-10 text-center text-sm text-muted-foreground">No Firebase machine telemetry is available yet.</p>}
         </div>
 
         <div className="text-center">
           <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-primary/25 bg-primary/5 px-3 py-1.5 text-[10px] font-display tracking-[0.22em] text-primary">
             <ShieldCheck className="h-3.5 w-3.5" />
-            DEMO DATA
+            FIREBASE TELEMETRY
           </div>
-          <Link to="/demo">
+          <Link to={user ? "/dashboard" : "/login"}>
             <Button variant="outline" className="font-display text-[10px] tracking-[0.22em]">
               OPEN FULL DASHBOARD →
             </Button>

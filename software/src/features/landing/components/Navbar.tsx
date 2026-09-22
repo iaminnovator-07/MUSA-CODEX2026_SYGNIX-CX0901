@@ -27,7 +27,7 @@ const Navbar = () => {
             </>
           )}
           <Link
-            to="/demo"
+              to="/dashboard"
             className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground font-display text-[10px] font-bold tracking-[0.2em] hover:brightness-110 transition-all"
           >
             <BarChart3 className="w-3.5 h-3.5" />
@@ -50,7 +50,7 @@ const Navbar = () => {
               <a href="#about" onClick={() => setOpen(false)} className="block text-sm text-muted-foreground">Team</a>
             </>
           )}
-          <Link to="/demo" onClick={() => setOpen(false)} className="block text-sm text-primary font-bold">Dashboard</Link>
+            <Link to="/dashboard" onClick={() => setOpen(false)} className="block text-sm text-primary font-bold">Dashboard</Link>
         </div>
       )}
     </nav>

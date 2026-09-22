@@ -23,7 +23,7 @@ const FinalCtaSection = () => (
             HazardEye brings affordable industrial intelligence to the machines that keep MSMEs running.
           </p>
           <Link
-            to="/demo"
+            to="/dashboard"
             className="inline-flex items-center gap-2 rounded-lg bg-primary px-8 py-3 font-display text-[10px] tracking-[0.22em] text-primary-foreground transition-all hover:brightness-110"
           >
             EXPLORE THE SYSTEM
