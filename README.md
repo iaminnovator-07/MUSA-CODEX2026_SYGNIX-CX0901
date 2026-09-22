@@ -311,6 +311,8 @@ The project evolved into a broader exploration of AI-powered Industrial IoT and 
 ---
 👨‍💻 Team SYGNIX
 
+![TEAM PIC](./docs/team.png)
+
 Swadeep Bansode — Lead & System Architecture
 
 Shreyash Chavan — Backend Development & IoT Communication
