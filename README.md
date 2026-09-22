@@ -300,18 +300,24 @@ AI × IoT × Hardware × Software × Physical Systems
 
 Instead of intelligence existing only inside software, HazardEye brings intelligence closer to the physical world — machines, sensors, infrastructure and people.
 
+----
 🏆 About the Project
 
 HazardEye originated as a college innovation project focused on industrial safety and machine monitoring.
 
 The project evolved into a broader exploration of AI-powered Industrial IoT and Physical AI, and now contributes to the product-building direction of SYGNIX.
 
+
+---
 👨‍💻 Team SYGNIX
 
 Swadeep Bansode — Lead & System Architecture
+
 Shreyash Chavan — Backend Development & IoT Communication
+
 Harsh Poojari — Frontend Development & Web Dashboard
 
+---
 🎯 Vision
 
 Don't just collect industrial data. Make the physical world understandable.
